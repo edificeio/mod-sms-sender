@@ -1,4 +1,4 @@
-package org.vertx.smsproxy.ovh;
+package fr.wseduc.smsproxy.providers.ovh;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

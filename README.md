@@ -14,6 +14,7 @@ Below is a short description of the json message syntax :
     "action" -> Action field, describes which action to perform
                 List of all available actions :
                   - "send-sms" : sends a text message.
+    "provider" -> Provider name
     "parameters" -> JsonObject, used by each implementation differently. (depends on the action)
 
 }
@@ -27,11 +28,15 @@ Specific json configuration :
 
 ```
 {
-    "main":"org.vertx.smsproxy.ovh.OVHSms",
-    "applicationKey": "{OVH APPLICATION KEY}",
-    "applicationSecret": "{OVH APPLICATION SECRET}",
-    "consumerKey": "{OVH CONSUMER KEY}"
+    "main":"fr.wseduc.smsproxy.sms.Sms",
+    "providers"{
+        "OVH": {
+            "applicationKey": "",
+            "applicationSecret": "",
+            "consumerKey": ""
+        }
+    }
 }
 ```
 
-See the following link for more details on the API : [OVH API](https://eu.api.ovh.com/)
+Check the following link for more details on the API : [OVH API](https://eu.api.ovh.com/)

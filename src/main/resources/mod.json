@@ -1,6 +1,3 @@
 {
-	"main":"org.vertx.smsproxy.ovh.OVHSms",
-	"applicationKey": "",
-	"applicationSecret": "",
-	"consumerKey": ""
+	"main":"fr.wseduc.smsproxy.Sms"
 }
