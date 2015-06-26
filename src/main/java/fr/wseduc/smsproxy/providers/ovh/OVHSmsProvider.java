@@ -64,7 +64,17 @@ public class OVHSmsProvider extends SmsProvider{
 				} else {
 					response.bodyHandler(new Handler<Buffer>(){
 						public void handle(Buffer body) {
-							message.reply(new JsonObject(body.toString()));
+							final JsonObject response = new JsonObject(body.toString());
+							final JsonArray invalidReceivers = response.getArray("invalidReceivers", new JsonArray());
+							final JsonArray validReceivers = response.getArray("validReceivers", new JsonArray());
+
+							if(validReceivers.size() == 0){
+								sendError(message, "invalid.receivers.all", null, new JsonObject(body.toString()));
+							} else if(invalidReceivers.size() > 0){
+								sendError(message, "invalid.receivers.partial", null, new JsonObject(body.toString()));
+							} else {
+								message.reply(new JsonObject(body.toString()));
+							}
 						}
 					});
 				}
