@@ -28,6 +28,12 @@ public abstract class SmsProvider {
 	public abstract void sendSms(final Message<JsonObject> message);
 
 	/**
+	 * Retrieves the account information.
+	 * @param message : Message contents, implementation is provider dependent.
+	 */
+	public abstract void getInfo(final Message<JsonObject> message);
+
+	/**
 	 * Error management method, sends back a message containing the error details on the bus.
 	 * @param message : Original message
 	 * @param error : Error message
@@ -58,7 +64,7 @@ public abstract class SmsProvider {
 	 * @param error : Error message
 	 */
 	protected void sendError(Message<JsonObject> message, String error) {
-	    sendError(message, error, null);
-	  }
+		sendError(message, error, null);
+	}
 
 }

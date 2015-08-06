@@ -73,7 +73,7 @@ public class OVHSmsProvider extends SmsProvider{
 							} else if(invalidReceivers.size() > 0){
 								sendError(message, "invalid.receivers.partial", null, new JsonObject(body.toString()));
 							} else {
-								message.reply(new JsonObject(body.toString()));
+								message.reply(response);
 							}
 						}
 					});
@@ -92,6 +92,35 @@ public class OVHSmsProvider extends SmsProvider{
 		};
 
 		retrieveSmsService(message, serviceCallback);
+	}
+
+	@Override
+	public void getInfo(final Message<JsonObject> message) {
+		final JsonObject parameters = message.body().getObject("parameters");
+		logger.debug("[OVH][getInfo] Called with parameters : "+parameters);
+
+		retrieveSmsService(message, new Handler<String>() {
+			public void handle(String service) {
+				if(service == null){
+					sendError(message, "ovh.apicall.error", null);
+				} else {
+					ovhRestClient.get("/sms/"+service, parameters, new Handler<HttpClientResponse>() {
+						public void handle(HttpClientResponse response) {
+							if(response == null){
+								sendError(message, "ovh.apicall.error", null);
+								return;
+							}
+							response.bodyHandler(new Handler<Buffer>(){
+								public void handle(Buffer body) {
+									final JsonObject response = new JsonObject(body.toString());
+									message.reply(response);
+								}
+							});
+						}
+					});
+				}
+			}
+		});
 	}
 
 }

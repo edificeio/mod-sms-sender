@@ -14,6 +14,7 @@ Below is a short description of the json message syntax :
     "action" -> Action field, describes which action to perform
                 List of all available actions :
                   - "send-sms" : sends a text message.
+                  - "get-info" : retrieves the sms account information
     "provider" -> Provider name
     "parameters" -> JsonObject, used by each implementation differently. (depends on the action)
 
