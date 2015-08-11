@@ -1,7 +1,0 @@
-{
-	"name": "fr.wseduc~sms-proxy~0.1-SNAPSHOT",
-	"config":{
-		"main":"fr.wseduc.smsproxy.Sms",
-		"providers": ${smsProviders}
-	}
-}

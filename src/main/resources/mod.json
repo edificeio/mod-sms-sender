@@ -1,3 +1,10 @@
 {
-	"main":"fr.wseduc.smsproxy.Sms"
+	"main":"fr.wseduc.smsproxy.Sms",
+	"worker": true,
+	"description": "Proxy SMS Service that support extension",
+	"licenses": ["The Apache Software License, Version 2.0"],
+	"author": "WebServices pour l'Education",
+	"keywords": ["proxy", "sms"],
+	"homepage": "https://github.com/web-education/mod-sms-sender",
+	"developers": ["Julien Elbaz"]
 }
