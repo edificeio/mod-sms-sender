@@ -20,7 +20,7 @@ public class Sms extends BusModBase implements Handler<Message<JsonObject>> {
 	@Override
 	public void start(){
 		super.start();
-		vertx.eventBus().registerHandler(config.getString("sms-address", "entcore.sms"), this);
+		vertx.eventBus().registerHandler(config.getString("address", "entcore.sms"), this);
 		implementations = ServiceLoader.load(SmsProvider.class);
 		providersList = container.config().getObject("providers");
 
