@@ -82,6 +82,8 @@ public class Sms extends BusModBase implements Handler<Message<JsonObject>> {
 			case("get-info"):
 				provider.getInfo(message);
 				break;
+			case("ping"):
+				sendOK(message);
 			default:
 				sendError(message, "invalid.action");
 		}
