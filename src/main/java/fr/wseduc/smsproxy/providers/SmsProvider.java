@@ -16,11 +16,11 @@
 
 package fr.wseduc.smsproxy.providers;
 
-import org.vertx.java.core.Vertx;
-import org.vertx.java.core.eventbus.Message;
-import org.vertx.java.core.json.JsonObject;
-import org.vertx.java.core.logging.Logger;
-import org.vertx.java.core.logging.impl.LoggerFactory;
+import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 
 
 public abstract class SmsProvider {
@@ -58,9 +58,9 @@ public abstract class SmsProvider {
 	 */
 	protected void sendError(Message<JsonObject> message, String error, Exception e, JsonObject data){
 		logger.error(error, e);
-	    JsonObject json = new JsonObject().putString("status", "error")
-	    		.putString("message", error)
-	    		.putObject("data", data);
+	    JsonObject json = new JsonObject().put("status", "error")
+	    		.put("message", error)
+	    		.put("data", data);
 	    message.reply(json);
 	}
 

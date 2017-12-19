@@ -21,13 +21,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Map.Entry;
 
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.Vertx;
-import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.http.HttpClient;
-import org.vertx.java.core.http.HttpClientRequest;
-import org.vertx.java.core.http.HttpClientResponse;
-import org.vertx.java.core.json.JsonObject;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.json.JsonObject;
 
 public class OVHHelper {
 	
@@ -82,7 +83,9 @@ public class OVHHelper {
 			this.AS = AS;
 			this.CK = CK;
 			this.endPoint = endPoint;
-			this.httpclient = vertx.createHttpClient().setHost(endPoint).setSSL(true).setPort(443);
+			HttpClientOptions options = new HttpClientOptions()
+					.setDefaultHost(endPoint).setSsl(true).setDefaultPort(443);
+			this.httpclient = vertx.createHttpClient(options);
 		}
 		
 		private void getOvhTime(final Handler<Long> handler){
@@ -124,7 +127,7 @@ public class OVHHelper {
 			switch(httpMethod){
 				case "GET":
 				case "DELETE":
-					for(Entry<String, Object> entry : params.toMap().entrySet()){
+					for(Entry<String, Object> entry : params.getMap().entrySet()){
 						if(query.length() == 0){
 							query.append("?");
 						} else {
@@ -183,7 +186,7 @@ public class OVHHelper {
 			
 			//Fill body
 			if(body.length() > 0){
-				Buffer bodyBuffer = new Buffer();
+				Buffer bodyBuffer = Buffer.buffer();
 				bodyBuffer.appendString(body, "UTF-8");
 				request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
 				request.write(bodyBuffer);

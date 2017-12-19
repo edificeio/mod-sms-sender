@@ -16,13 +16,13 @@
 
 package fr.wseduc.smsproxy.providers.ovh;
 
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.Vertx;
-import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.eventbus.Message;
-import org.vertx.java.core.http.HttpClientResponse;
-import org.vertx.java.core.json.JsonArray;
-import org.vertx.java.core.json.JsonObject;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 import fr.wseduc.smsproxy.providers.ovh.OVHHelper.OVHClient;
 import fr.wseduc.smsproxy.providers.ovh.OVHHelper.OVH_ENDPOINT;
@@ -57,7 +57,7 @@ public class OVHSmsProvider extends SmsProvider{
 						if(response.statusCode() == 200){
 							logger.debug("[OVH][retrieveSmsService] Ok with body : "+body);
 							JsonArray smsServices = new JsonArray(body.toString("UTF-8"));
-							callBack.handle(smsServices.get(0).toString());
+							callBack.handle(smsServices.getString(0));
 						} else {
 							logger.error("[OVH][retrieveSmsService] /sms/ reponse code ["+response.statusCode()+"] : "+body.toString("UTF-8"));
 							sendError(message, body.toString("UTF-8"), null);
@@ -70,7 +70,7 @@ public class OVHSmsProvider extends SmsProvider{
 
 	@Override
 	public void sendSms(final Message<JsonObject> message) {
-		final JsonObject parameters = message.body().getObject("parameters");
+		final JsonObject parameters = message.body().getJsonObject("parameters");
 		logger.debug("[OVH][sendSms] Called with parameters : "+parameters);
 
 		final Handler<HttpClientResponse> resultHandler = new Handler<HttpClientResponse>() {
@@ -81,8 +81,8 @@ public class OVHSmsProvider extends SmsProvider{
 					response.bodyHandler(new Handler<Buffer>(){
 						public void handle(Buffer body) {
 							final JsonObject response = new JsonObject(body.toString());
-							final JsonArray invalidReceivers = response.getArray("invalidReceivers", new JsonArray());
-							final JsonArray validReceivers = response.getArray("validReceivers", new JsonArray());
+							final JsonArray invalidReceivers = response.getJsonArray("invalidReceivers", new JsonArray());
+							final JsonArray validReceivers = response.getJsonArray("validReceivers", new JsonArray());
 
 							if(validReceivers.size() == 0){
 								sendError(message, "invalid.receivers.all", null, new JsonObject(body.toString()));
@@ -112,7 +112,7 @@ public class OVHSmsProvider extends SmsProvider{
 
 	@Override
 	public void getInfo(final Message<JsonObject> message) {
-		final JsonObject parameters = message.body().getObject("parameters");
+		final JsonObject parameters = message.body().getJsonObject("parameters");
 		logger.debug("[OVH][getInfo] Called with parameters : "+parameters);
 
 		retrieveSmsService(message, new Handler<String>() {
