@@ -57,7 +57,7 @@ public abstract class SmsProvider {
 	 * @param data : Additional data
 	 */
 	protected void sendError(Message<JsonObject> message, String error, Exception e, JsonObject data){
-		logger.error(error, e);
+		logger.error(error + " -> " + data, e);
 	    JsonObject json = new JsonObject().put("status", "error")
 	    		.put("message", error)
 	    		.put("data", data);
