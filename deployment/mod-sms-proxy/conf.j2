@@ -1,0 +1,19 @@
+{
+    "name": "{{ modSmsproxyVersion }}",
+    "priority": 9,
+    "waitDeploy" : true,
+    "worker": true,
+    "config": {
+      "main": "fr.wseduc.smsproxy.Sms",
+      "address": "entcore.sms",
+      "providers": {
+        {% if ovhSMSAppKey is defined %}
+        "OVH": {
+          "applicationKey": "{{ovhSMSAppKey}}",
+          "applicationSecret": "{{ovhSMSAppSecret}}",
+          "consumerKey": "{{ovhSMSConsumerKey}}"
+        }
+        {% endif %}
+      }
+    }
+}
