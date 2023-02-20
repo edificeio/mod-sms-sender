@@ -21,6 +21,7 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import fr.wseduc.sms.SmsSendingReport;
 
 
 public abstract class SmsProvider {
@@ -54,13 +55,13 @@ public abstract class SmsProvider {
 	 * @param message : Original message
 	 * @param error : Error message
 	 * @param e : Exception thrown
-	 * @param data : Additional data
+	 * @param data : Additional data from the provider
 	 */
-	protected void sendError(Message<JsonObject> message, String error, Exception e, JsonObject data){
+	protected void sendError(Message<JsonObject> message, ErrorCodes error, Exception e, SmsSendingReport data){
 		logger.error(error + " -> " + data, e);
-	    JsonObject json = new JsonObject().put("status", "error")
-	    		.put("message", error)
-	    		.put("data", data);
+	    final JsonObject json = new JsonObject().put("status", "error")
+	    		.put("message", error.getCode())
+	    		.put("data", JsonObject.mapFrom(data));
 	    message.reply(json);
 	}
 
@@ -70,17 +71,35 @@ public abstract class SmsProvider {
 	 * @param error : Error message
 	 * @param e : Exception thrown
 	 */
-	protected void sendError(Message<JsonObject> message, String error, Exception e){
+	protected void sendError(Message<JsonObject> message, ErrorCodes error, Exception e){
 		sendError(message, error, e, null);
 	}
 
 	/**
-	 * Error management method, sends back a message containing the errer details on the bus.
+	 * Error management method, sends back a message containing the error details on the bus.
 	 * @param message : Original message
-	 * @param error : Error message
+	 * @param report : Additional data from the provider
 	 */
-	protected void sendError(Message<JsonObject> message, String error) {
-		sendError(message, error, null);
+	protected void replyOk(Message<JsonObject> message, final SmsSendingReport report){
+		final JsonObject json = new JsonObject().put("status", "ok")
+				.put("data", JsonObject.mapFrom(report));
+		message.reply(json);
+	}
+
+	public enum ErrorCodes {
+		CALL_ERROR("provider.apicall.error"),
+		INVALID_RECEIVERS_ALL("invalid.receivers.all"),
+		INVALID_RECEIVERS_PARTIAL("invalid.receivers.partial");
+
+		private final String code;
+
+		ErrorCodes(final String code) {
+			this.code = code;
+		}
+
+		public String getCode() {
+			return code;
+		}
 	}
 
 }
