@@ -16,17 +16,22 @@
 
 package fr.wseduc.smsproxy.providers.ovh;
 
+import io.vertx.core.json.DecodeException;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import fr.wseduc.smsproxy.providers.ovh.OVHHelper.OVHClient;
 import fr.wseduc.smsproxy.providers.ovh.OVHHelper.OVH_ENDPOINT;
 import fr.wseduc.smsproxy.providers.SmsProvider;
+import fr.wseduc.sms.SmsSendingReport;
+
+import java.nio.charset.StandardCharsets;
 
 public class OVHSmsProvider extends SmsProvider{
 
@@ -44,24 +49,20 @@ public class OVHSmsProvider extends SmsProvider{
 	}
 
 	private void retrieveSmsService(final Message<JsonObject> message, final Handler<String> callBack){
-		ovhRestClient.get("/sms/", new JsonObject(), new Handler<HttpClientResponse>() {
-			public void handle(final HttpClientResponse response) {
-				logger.debug("[OVH][retrieveSmsService] /sms/ call returned : "+response);
-				if(response == null){
-					logger.error("[OVH][retrieveSmsService] /sms/ call response is null.");
-					sendError(message, "ovh.apicall.error", null);
-					return;
-				}
-				response.bodyHandler(new Handler<Buffer>() {
-					public void handle(Buffer body) {
-						if(response.statusCode() == 200){
-							logger.debug("[OVH][retrieveSmsService] Ok with body : "+body);
-							JsonArray smsServices = new JsonArray(body.toString("UTF-8"));
-							callBack.handle(smsServices.getString(0));
-						} else {
-							logger.error("[OVH][retrieveSmsService] /sms/ reponse code ["+response.statusCode()+"] : "+body.toString("UTF-8"));
-							sendError(message, body.toString("UTF-8"), null);
-						}
+		ovhRestClient.get("/sms/", new JsonObject(), response -> {
+			logger.debug("[OVH][retrieveSmsService] /sms/ call returned : "+response);
+			if(response == null){
+				logger.error("[OVH][retrieveSmsService] /sms/ call response is null.");
+				sendError(message, ErrorCodes.CALL_ERROR, null);
+			} else {
+				response.bodyHandler(body -> {
+					if (response.statusCode() == 200) {
+						logger.debug("[OVH][retrieveSmsService] Ok with body : " + body);
+						JsonArray smsServices = new JsonArray(body.toString(StandardCharsets.UTF_8));
+						callBack.handle(smsServices.getString(0));
+					} else {
+						logger.error("[OVH][retrieveSmsService] /sms/ reponse code [" + response.statusCode() + "] : " + body.toString(StandardCharsets.UTF_8));
+						sendError(message, ErrorCodes.CALL_ERROR, null);
 					}
 				});
 			}
@@ -73,41 +74,56 @@ public class OVHSmsProvider extends SmsProvider{
 		final JsonObject parameters = message.body().getJsonObject("parameters");
 		logger.debug("[OVH][sendSms] Called with parameters : "+parameters);
 
-		final Handler<HttpClientResponse> resultHandler = new Handler<HttpClientResponse>() {
-			public void handle(HttpClientResponse response) {
-				if(response == null){
-					sendError(message, "ovh.apicall.error", null);
-				} else {
-					response.bodyHandler(new Handler<Buffer>(){
-						public void handle(Buffer body) {
-							final JsonObject response = new JsonObject(body.toString());
-							final JsonArray invalidReceivers = response.getJsonArray("invalidReceivers", new JsonArray());
-							final JsonArray validReceivers = response.getJsonArray("validReceivers", new JsonArray());
-
-							if(validReceivers.size() == 0){
-								sendError(message, "invalid.receivers.all", null, new JsonObject(body.toString()));
-							} else if(invalidReceivers.size() > 0){
-								sendError(message, "invalid.receivers.partial", null, new JsonObject(body.toString()));
-							} else {
-								message.reply(response);
-							}
+		final Handler<HttpClientResponse> resultHandler = response -> {
+			if(response == null){
+				sendError(message, ErrorCodes.CALL_ERROR, null);
+			} else {
+				response.bodyHandler(body -> {
+					try {
+						final OVHSmsSendingReport ovhSmsSendingReport = Json.decodeValue(body, OVHSmsSendingReport.class);
+						logger.debug("[OVH][sendSms] " + ovhSmsSendingReport.getTotalCreditsRemoved() + " credits have been removed");
+						if (ovhSmsSendingReport.getValidReceivers().length == 0) {
+							sendError(message, ErrorCodes.INVALID_RECEIVERS_ALL, null, toSmsReport(ovhSmsSendingReport));
+						} else if (ovhSmsSendingReport.getInvalidReceivers().length > 0) {
+							sendError(message, ErrorCodes.INVALID_RECEIVERS_PARTIAL, null, toSmsReport(ovhSmsSendingReport));
+						} else {
+							replyOk(message, toSmsReport(ovhSmsSendingReport));
 						}
-					});
-				}
+					} catch (DecodeException e) {
+						logger.error("[OVH][sendSms] Could not decode OVHSmsSendingReport : " + body.toString(), e);
+						sendError(message, ErrorCodes.CALL_ERROR, e);
+					}
+				});
 			}
 		};
 
-		Handler<String> serviceCallback = new Handler<String>() {
-			public void handle(String service) {
-				if(service == null){
-					sendError(message, "ovh.apicall.error", null);
-				} else {
-					ovhRestClient.post("/sms/"+service+"/jobs/", parameters, resultHandler);
-				}
+		Handler<String> serviceCallback = service -> {
+			if(service == null){
+				sendError(message, ErrorCodes.CALL_ERROR, null);
+			} else {
+				ovhRestClient.post("/sms/"+service+"/jobs/", parameters, resultHandler);
 			}
 		};
 
 		retrieveSmsService(message, serviceCallback);
+	}
+
+	private SmsSendingReport toSmsReport(OVHSmsSendingReport ovhSmsSendingReport) {
+		final String[] ids;
+		final long[] ovhIds = ovhSmsSendingReport.getIds();
+		if(ovhIds == null) {
+			ids = null;
+		} else {
+			ids = new String[ovhIds.length];
+			for (int i = 0; i < ovhIds.length; i++) {
+				ids[i] = String.valueOf(ovhIds[i]);
+			}
+		}
+		return new SmsSendingReport(
+				ids,
+				ovhSmsSendingReport.getInvalidReceivers(),
+				ovhSmsSendingReport.getValidReceivers()
+		);
 	}
 
 	@Override
@@ -118,12 +134,12 @@ public class OVHSmsProvider extends SmsProvider{
 		retrieveSmsService(message, new Handler<String>() {
 			public void handle(String service) {
 				if(service == null){
-					sendError(message, "ovh.apicall.error", null);
+					sendError(message, ErrorCodes.CALL_ERROR, null);
 				} else {
 					ovhRestClient.get("/sms/"+service, parameters, new Handler<HttpClientResponse>() {
 						public void handle(HttpClientResponse response) {
 							if(response == null){
-								sendError(message, "ovh.apicall.error", null);
+								sendError(message, ErrorCodes.CALL_ERROR, null);
 								return;
 							}
 							response.bodyHandler(new Handler<Buffer>(){
