@@ -16,11 +16,13 @@
 
 package fr.wseduc.smsproxy.providers.ovh;
 
+import org.entcore.common.sms.SmsSendingReport;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -73,41 +75,41 @@ public class OVHSmsProvider extends SmsProvider{
 		final JsonObject parameters = message.body().getJsonObject("parameters");
 		logger.debug("[OVH][sendSms] Called with parameters : "+parameters);
 
-		final Handler<HttpClientResponse> resultHandler = new Handler<HttpClientResponse>() {
-			public void handle(HttpClientResponse response) {
-				if(response == null){
-					sendError(message, "ovh.apicall.error", null);
-				} else {
-					response.bodyHandler(new Handler<Buffer>(){
-						public void handle(Buffer body) {
-							final JsonObject response = new JsonObject(body.toString());
-							final JsonArray invalidReceivers = response.getJsonArray("invalidReceivers", new JsonArray());
-							final JsonArray validReceivers = response.getJsonArray("validReceivers", new JsonArray());
-
-							if(validReceivers.size() == 0){
-								sendError(message, "invalid.receivers.all", null, new JsonObject(body.toString()));
-							} else if(invalidReceivers.size() > 0){
-								sendError(message, "invalid.receivers.partial", null, new JsonObject(body.toString()));
-							} else {
-								message.reply(response);
-							}
-						}
-					});
-				}
+		final Handler<HttpClientResponse> resultHandler = response -> {
+			if(response == null){
+				sendError(message, "ovh.apicall.error", null);
+			} else {
+				response.bodyHandler(body -> {
+					final OVHSmsSendingReport ovhSmsSendingReport = Json.decodeValue(body, OVHSmsSendingReport.class);
+					logger.debug("[OVH][sendSms] " + ovhSmsSendingReport.getTotalCreditsRemoved() + " credits have been removed");
+					if(ovhSmsSendingReport.getValidReceivers().length == 0){
+						sendError(message, "invalid.receivers.all", null, toSmsReport(ovhSmsSendingReport));
+					} else if(ovhSmsSendingReport.getInvalidReceivers().length > 0){
+						sendError(message, "invalid.receivers.partial", null, toSmsReport(ovhSmsSendingReport));
+					} else {
+						replyOk(message, toSmsReport(ovhSmsSendingReport));
+					}
+				});
 			}
 		};
 
-		Handler<String> serviceCallback = new Handler<String>() {
-			public void handle(String service) {
-				if(service == null){
-					sendError(message, "ovh.apicall.error", null);
-				} else {
-					ovhRestClient.post("/sms/"+service+"/jobs/", parameters, resultHandler);
-				}
+		Handler<String> serviceCallback = service -> {
+			if(service == null){
+				sendError(message, "ovh.apicall.error", null);
+			} else {
+				ovhRestClient.post("/sms/"+service+"/jobs/", parameters, resultHandler);
 			}
 		};
 
 		retrieveSmsService(message, serviceCallback);
+	}
+
+	private SmsSendingReport toSmsReport(OVHSmsSendingReport ovhSmsSendingReport) {
+		return new SmsSendingReport(
+				ovhSmsSendingReport.getIds(),
+				ovhSmsSendingReport.getInvalidReceivers(),
+				ovhSmsSendingReport.getValidReceivers()
+		);
 	}
 
 	@Override

@@ -56,6 +56,7 @@ compileTestJava {
 dependencies {
   compileOnly "io.vertx:vertx-core:$vertxVersion"
   compile "fr.wseduc:web-utils:$webutilsVersion"
+  compile "org.entcore:common:$entCoreVersion"
 }
 
 jar {
