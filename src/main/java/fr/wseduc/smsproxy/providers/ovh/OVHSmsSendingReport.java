@@ -21,10 +21,10 @@ public class OVHSmsSendingReport {
                                @JsonProperty("invalidReceivers") final String[] invalidReceivers,
                                @JsonProperty("totalCreditsRemoved") final double totalCreditsRemoved,
                                @JsonProperty("validReceivers") final String[] validReceivers) {
-        this.ids = ids;
-        this.invalidReceivers = invalidReceivers;
+        this.ids = (ids != null) ? ids : new long[] {};
+        this.invalidReceivers = (invalidReceivers != null) ? invalidReceivers : new String[] {};
         this.totalCreditsRemoved = totalCreditsRemoved;
-        this.validReceivers = validReceivers;
+        this.validReceivers = (validReceivers != null) ? validReceivers : new String[] {};
     }
 
     public long[] getIds() {
