@@ -16,6 +16,8 @@
 
 package fr.wseduc.smsproxy.providers.ovh;
 
+import fr.wseduc.smsproxy.providers.metrics.SmsMetricsRecorder;
+import fr.wseduc.smsproxy.providers.metrics.SmsMetricsRecorderFactory;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -30,6 +32,7 @@ import fr.wseduc.smsproxy.providers.ovh.OVHHelper.OVHClient;
 import fr.wseduc.smsproxy.providers.ovh.OVHHelper.OVH_ENDPOINT;
 import fr.wseduc.smsproxy.providers.SmsProvider;
 import fr.wseduc.sms.SmsSendingReport;
+import static java.lang.System.currentTimeMillis;
 
 import java.nio.charset.StandardCharsets;
 
@@ -37,6 +40,7 @@ public class OVHSmsProvider extends SmsProvider{
 
 	private OVHClient ovhRestClient;
 	private String AK, AS, CK, endPoint;
+	private SmsMetricsRecorder smsMetricsRecorder;
 
 	@Override
 	public void initProvider(Vertx vertx, JsonObject config) {
@@ -46,6 +50,7 @@ public class OVHSmsProvider extends SmsProvider{
 		this.endPoint = config.getString("ovhEndPoint", OVH_ENDPOINT.ovh_eu.getValue());
 
 		ovhRestClient = new OVHClient(vertx, endPoint, AK, AS, CK);
+		this.smsMetricsRecorder = SmsMetricsRecorderFactory.getInstance();
 	}
 
 	private void retrieveSmsService(final Message<JsonObject> message, final Handler<String> callBack){
@@ -73,8 +78,10 @@ public class OVHSmsProvider extends SmsProvider{
 	public void sendSms(final Message<JsonObject> message) {
 		final JsonObject parameters = message.body().getJsonObject("parameters");
 		logger.debug("[OVH][sendSms] Called with parameters : "+parameters);
-
+		final long start = currentTimeMillis();
 		final Handler<HttpClientResponse> resultHandler = response -> {
+			final long duration = currentTimeMillis() - start;
+			smsMetricsRecorder.onSmsSent(duration);
 			if(response == null){
 				sendError(message, ErrorCodes.CALL_ERROR, null);
 			} else {

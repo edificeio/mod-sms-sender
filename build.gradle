@@ -56,6 +56,8 @@ compileTestJava {
 dependencies {
   compileOnly "io.vertx:vertx-core:$vertxVersion"
   compile "fr.wseduc:web-utils:$webutilsVersion"
+  compile "io.vertx:vertx-micrometer-metrics:$vertxVersion"
+  compile "io.micrometer:micrometer-registry-prometheus:$micrometerPrometheusVersion"
 }
 
 jar {
