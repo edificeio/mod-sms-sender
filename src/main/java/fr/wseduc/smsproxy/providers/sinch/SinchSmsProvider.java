@@ -1,0 +1,104 @@
+package fr.wseduc.smsproxy.providers.sinch;
+
+import fr.wseduc.sms.SmsSendingReport;
+import fr.wseduc.smsproxy.providers.SmsProvider;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.Message;
+import io.vertx.core.http.*;
+import io.vertx.core.json.DecodeException;
+import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonObject;
+
+/**
+ * Implementation of Sms Provider using Sinch API
+ */
+public class SinchSmsProvider extends SmsProvider {
+
+    /**
+     * Http Client
+     */
+    private HttpClient httpClient;
+    /**
+     * Service Plan Id for authentication
+     */
+    private String servicePlanId;
+    /**
+     * Api token for authentication
+     */
+    private String apiToken;
+    /**
+     * API endpoint
+     */
+    private String endpoint;
+    @Override
+    public void initProvider(Vertx vertx, JsonObject conf) {
+        this.servicePlanId = conf.getString("servicePlanId", "");
+        this.apiToken = conf.getString("apiToken", "");
+        this.endpoint = "https://" + conf.getString("region", "") + conf.getString("endpoint", "");
+
+        this.httpClient = vertx.createHttpClient();
+    }
+
+    @Override
+    public void sendSms(Message<JsonObject> message) {
+        final JsonObject parameters = message.body().getJsonObject("parameters");
+        logger.debug("[Sinch][sendSms] Called with parameters : " + parameters);
+
+        final Handler<HttpClientResponse> resultHandler = response -> {
+            if (response == null) {
+                sendError(message, ErrorCodes.CALL_ERROR, null);
+            } else {
+                response.bodyHandler(body -> {
+                    try {
+                        final SinchSmsSendingReport sinchSmsSendingReport = Json.decodeValue(body, SinchSmsSendingReport.class);
+                        replyOk(message, toSmsReport(sinchSmsSendingReport));
+                        logger.debug("[Sinch][sendSms] body : " + body);
+                    } catch (DecodeException e) {
+                        logger.error("[Sinch][sendSms] Could not decode SinchSmsSendingReport : " + body.toString(), e);
+                        sendError(message, ErrorCodes.CALL_ERROR, e);
+                    }
+                });
+            }
+        };
+
+        String path = endpoint + "/" + servicePlanId + "/batches";
+
+        HttpClientRequest request = httpClient.postAbs(path, resultHandler);
+
+        request.putHeader("Content-Type", "application/json");
+        // Sinch specific fields
+        request.putHeader("Authorization", "Bearer " + apiToken);
+
+        String body = new JsonObject()
+                .put("to", parameters.getJsonArray("receivers"))
+                .put("body", parameters.getValue("message"))
+                .put("client_reference", "marius testing")
+                .toString();
+
+        Buffer bodyBuffer = Buffer.buffer();
+        bodyBuffer.appendString(body, "UTF-8");
+        request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
+        request.write(bodyBuffer);
+
+        request.end();
+    }
+
+    /**
+     * Method mapping specific Sinch sms sending report toward generic sms sending report
+     * @param sinchSmsSendingReport the report received after sending sms through Sinch API
+     * @return the generic sms sending report
+     */
+    private SmsSendingReport toSmsReport(SinchSmsSendingReport sinchSmsSendingReport) {
+        return new SmsSendingReport(
+                new String[]{sinchSmsSendingReport.getId()},
+                new String[]{},
+                sinchSmsSendingReport.getTo());
+    }
+
+    @Override
+    public void getInfo(Message<JsonObject> message) {
+
+    }
+}

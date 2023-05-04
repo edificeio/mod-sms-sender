@@ -1,1 +1,2 @@
 fr.wseduc.smsproxy.providers.ovh.OVHSmsProvider
+fr.wseduc.smsproxy.providers.sinch.SinchSmsProvider
