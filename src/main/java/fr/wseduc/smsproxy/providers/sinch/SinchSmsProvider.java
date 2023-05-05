@@ -28,10 +28,15 @@ public class SinchSmsProvider extends SmsProvider {
      * Api endpoint
      */
     private String apiEndpoint;
+    /**
+     * Client reference
+     */
+    private String clientReference;
     @Override
     public void initProvider(Vertx vertx, JsonObject conf) {
         this.apiToken = conf.getString("apiToken", "");
         this.apiEndpoint = conf.getString("baseUrl", "") + "/" + conf.getString("servicePlanId", "") + "/batches";
+        this.clientReference = conf.getString("clientReference", "");
         this.httpClient = vertx.createHttpClient();
     }
 
@@ -66,7 +71,7 @@ public class SinchSmsProvider extends SmsProvider {
         String body = new JsonObject()
                 .put("to", parameters.getJsonArray("receivers"))
                 .put("body", parameters.getValue("message"))
-                .put("client_reference", "marius testing")
+                .put("client_reference", clientReference)
                 .toString();
         Buffer bodyBuffer = Buffer.buffer();
         bodyBuffer.appendString(body, "UTF-8");
@@ -96,9 +101,7 @@ public class SinchSmsProvider extends SmsProvider {
             if (response == null) {
                 sendError(message, ErrorCodes.CALL_ERROR, null);
             } else {
-                response.bodyHandler(body -> {
-                    message.reply(new JsonObject(body.toString()));
-                });
+                response.bodyHandler(body -> message.reply(new JsonObject(body.toString())));
             }
         };
 
