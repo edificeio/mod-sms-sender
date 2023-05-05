@@ -21,23 +21,17 @@ public class SinchSmsProvider extends SmsProvider {
      */
     private HttpClient httpClient;
     /**
-     * Service Plan Id for authentication
-     */
-    private String servicePlanId;
-    /**
      * Api token for authentication
      */
     private String apiToken;
     /**
-     * API endpoint
+     * Api endpoint
      */
-    private String endpoint;
+    private String apiEndpoint;
     @Override
     public void initProvider(Vertx vertx, JsonObject conf) {
-        this.servicePlanId = conf.getString("servicePlanId", "");
         this.apiToken = conf.getString("apiToken", "");
-        this.endpoint = "https://" + conf.getString("region", "") + conf.getString("endpoint", "");
-
+        this.apiEndpoint = conf.getString("baseUrl", "") + "/" + conf.getString("servicePlanId", "") + "/batches";
         this.httpClient = vertx.createHttpClient();
     }
 
@@ -63,12 +57,10 @@ public class SinchSmsProvider extends SmsProvider {
             }
         };
 
-        String path = endpoint + "/" + servicePlanId + "/batches";
-
-        HttpClientRequest request = httpClient.postAbs(path, resultHandler);
+        HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
 
         request.putHeader("Content-Type", "application/json");
-        // Sinch specific fields
+        // Sinch specific authentication field
         request.putHeader("Authorization", "Bearer " + apiToken);
 
         String body = new JsonObject()
@@ -76,7 +68,6 @@ public class SinchSmsProvider extends SmsProvider {
                 .put("body", parameters.getValue("message"))
                 .put("client_reference", "marius testing")
                 .toString();
-
         Buffer bodyBuffer = Buffer.buffer();
         bodyBuffer.appendString(body, "UTF-8");
         request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
@@ -99,6 +90,24 @@ public class SinchSmsProvider extends SmsProvider {
 
     @Override
     public void getInfo(Message<JsonObject> message) {
+        logger.debug("[Sinch][getInfo]");
+
+        final Handler<HttpClientResponse> resultHandler = response -> {
+            if (response == null) {
+                sendError(message, ErrorCodes.CALL_ERROR, null);
+            } else {
+                response.bodyHandler(body -> {
+                    message.reply(new JsonObject(body.toString()));
+                });
+            }
+        };
+
+        HttpClientRequest request = httpClient.getAbs(apiEndpoint, resultHandler);
+
+        // Sinch specific authentication field
+        request.putHeader("Authorization", "Bearer " + apiToken);
+
+        request.end();
 
     }
 }
