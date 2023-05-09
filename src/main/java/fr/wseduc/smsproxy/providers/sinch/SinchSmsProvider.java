@@ -90,7 +90,7 @@ public class SinchSmsProvider extends SmsProvider {
         return new SmsSendingReport(
                 new String[]{sinchSmsSendingReport.getId()},
                 new String[]{},
-                sinchSmsSendingReport.getTo());
+                new String[]{});
     }
 
     @Override
