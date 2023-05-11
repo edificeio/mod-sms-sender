@@ -17,7 +17,7 @@ import io.vertx.core.json.JsonObject;
 public class SinchSmsProvider extends SmsProvider {
 
     /**
-     * Http Client
+     * Http Client used to call Sinch endpoints
      */
     private HttpClient httpClient;
     /**
@@ -25,11 +25,11 @@ public class SinchSmsProvider extends SmsProvider {
      */
     private String apiToken;
     /**
-     * Api endpoint
+     * Sinch api endpoint for sms batch
      */
     private String apiEndpoint;
     /**
-     * Client reference
+     * Client reference, not mandatory to call Sinch api, but can be useful to transmit parametrized information about the caller
      */
     private String clientReference;
     @Override
