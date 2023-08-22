@@ -2,6 +2,7 @@ package fr.wseduc.smsproxy.providers.sinch;
 
 import fr.wseduc.sms.SmsSendingReport;
 import fr.wseduc.smsproxy.providers.SmsProvider;
+import fr.wseduc.webutils.StringValidation;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -9,6 +10,7 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.*;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -68,8 +70,16 @@ public class SinchSmsProvider extends SmsProvider {
         // Sinch specific authentication field
         request.putHeader("Authorization", "Bearer " + apiToken);
 
+        // Ensure that receivers all have an international prefix, otherwise the call will fail
+        final JsonArray receiversWithPrefix = new JsonArray();
+        for (final Object receiver : parameters.getJsonArray("receivers")) {
+            if(receiver instanceof String) {
+                receiversWithPrefix.add(StringValidation.formatPhone((String) receiver));
+            }
+        }
+
         String body = new JsonObject()
-                .put("to", parameters.getJsonArray("receivers"))
+                .put("to", receiversWithPrefix)
                 .put("body", parameters.getValue("message"))
                 .put("client_reference", clientReference)
                 .toString();
