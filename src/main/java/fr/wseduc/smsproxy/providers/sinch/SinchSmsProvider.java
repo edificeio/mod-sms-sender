@@ -64,31 +64,36 @@ public class SinchSmsProvider extends SmsProvider {
             }
         };
 
-        HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
+        final JsonArray receivers = parameters.getJsonArray("receivers");
+        if(receivers == null || receivers.isEmpty()) {
+            logger.error("[Sinch][sendSms] No receivers to send messages to");
+            sendError(message, ErrorCodes.CALL_ERROR, new IllegalArgumentException("no.receivers"));
+        } else {
+            HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
 
-        request.putHeader("Content-Type", "application/json");
-        // Sinch specific authentication field
-        request.putHeader("Authorization", "Bearer " + apiToken);
-
-        // Ensure that receivers all have an international prefix, otherwise the call will fail
-        final JsonArray receiversWithPrefix = new JsonArray();
-        for (final Object receiver : parameters.getJsonArray("receivers")) {
-            if(receiver instanceof String) {
-                receiversWithPrefix.add(StringValidation.formatPhone((String) receiver));
+            request.putHeader("Content-Type", "application/json");
+            // Sinch specific authentication field
+            request.putHeader("Authorization", "Bearer " + apiToken);
+            // Ensure that receivers all have an international prefix, otherwise the call will fail
+            final JsonArray receiversWithPrefix = new JsonArray();
+            for (final Object receiver : receivers) {
+                if (receiver instanceof String) {
+                    receiversWithPrefix.add(StringValidation.formatPhone((String) receiver));
+                }
             }
+
+            String body = new JsonObject()
+                    .put("to", receiversWithPrefix)
+                    .put("body", parameters.getValue("message"))
+                    .put("client_reference", clientReference)
+                    .toString();
+            Buffer bodyBuffer = Buffer.buffer();
+            bodyBuffer.appendString(body, "UTF-8");
+            request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
+            request.write(bodyBuffer);
+
+            request.end();
         }
-
-        String body = new JsonObject()
-                .put("to", receiversWithPrefix)
-                .put("body", parameters.getValue("message"))
-                .put("client_reference", clientReference)
-                .toString();
-        Buffer bodyBuffer = Buffer.buffer();
-        bodyBuffer.appendString(body, "UTF-8");
-        request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
-        request.write(bodyBuffer);
-
-        request.end();
     }
 
     /**
