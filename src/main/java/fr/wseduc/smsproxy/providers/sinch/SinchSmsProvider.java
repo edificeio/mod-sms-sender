@@ -2,7 +2,6 @@ package fr.wseduc.smsproxy.providers.sinch;
 
 import fr.wseduc.sms.SmsSendingReport;
 import fr.wseduc.smsproxy.providers.SmsProvider;
-import fr.wseduc.webutils.StringValidation;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -10,7 +9,6 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.http.*;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -43,7 +41,7 @@ public class SinchSmsProvider extends SmsProvider {
     }
 
     @Override
-    public void sendSms(Message<JsonObject> message) {
+    public void doSendSms(Message<JsonObject> message) {
         final JsonObject parameters = message.body().getJsonObject("parameters");
         logger.debug("[Sinch][sendSms] Called with parameters : " + parameters);
 
@@ -64,26 +62,14 @@ public class SinchSmsProvider extends SmsProvider {
             }
         };
 
-        final JsonArray receivers = parameters.getJsonArray("receivers");
-        if(receivers == null || receivers.isEmpty()) {
-            logger.error("[Sinch][sendSms] No receivers to send messages to");
-            sendError(message, ErrorCodes.CALL_ERROR, new IllegalArgumentException("no.receivers"));
-        } else {
             HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
 
             request.putHeader("Content-Type", "application/json");
             // Sinch specific authentication field
             request.putHeader("Authorization", "Bearer " + apiToken);
-            // Ensure that receivers all have an international prefix, otherwise the call will fail
-            final JsonArray receiversWithPrefix = new JsonArray();
-            for (final Object receiver : receivers) {
-                if (receiver instanceof String) {
-                    receiversWithPrefix.add(StringValidation.formatPhone((String) receiver));
-                }
-            }
 
             String body = new JsonObject()
-                    .put("to", receiversWithPrefix)
+                .put("to", parameters.getJsonArray("receivers"))
                     .put("body", parameters.getValue("message"))
                     .put("client_reference", clientReference)
                     .toString();
@@ -94,7 +80,6 @@ public class SinchSmsProvider extends SmsProvider {
 
             request.end();
         }
-    }
 
     /**
      * Method mapping specific Sinch sms sending report toward generic sms sending report

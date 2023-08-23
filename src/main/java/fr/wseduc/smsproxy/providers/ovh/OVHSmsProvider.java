@@ -75,7 +75,7 @@ public class OVHSmsProvider extends SmsProvider{
 	}
 
 	@Override
-	public void sendSms(final Message<JsonObject> message) {
+	public void doSendSms(final Message<JsonObject> message) {
 		final JsonObject parameters = message.body().getJsonObject("parameters");
 		logger.debug("[OVH][sendSms] Called with parameters : "+parameters);
 		final long start = currentTimeMillis();

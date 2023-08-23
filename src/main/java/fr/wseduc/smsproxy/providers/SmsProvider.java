@@ -18,10 +18,12 @@ package fr.wseduc.smsproxy.providers;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import fr.wseduc.sms.SmsSendingReport;
+import fr.wseduc.webutils.StringValidation;
 
 
 public abstract class SmsProvider {
@@ -42,7 +44,24 @@ public abstract class SmsProvider {
 	 * Sends a new text message.
 	 * @param message : Message contents, implementation is provider dependent.
 	 */
-	public abstract void sendSms(final Message<JsonObject> message);
+	public void sendSms(final Message<JsonObject> message) {
+		final JsonObject parameters = message.body().getJsonObject("parameters");
+		final JsonArray receivers = parameters.getJsonArray("receivers");
+		final JsonArray receiversWithPrefix = new JsonArray();
+		for (final Object receiver : receivers) {
+			if (receiver instanceof String) {
+				receiversWithPrefix.add(StringValidation.formatPhone((String) receiver));
+			}
+		}
+		parameters.put("receivers", receiversWithPrefix);
+		doSendSms(message);
+	}
+
+	/**
+	 * Sends a new text message to a list of receivers (numbers have been prefixed with the default prefix).
+	 * @param message : Message contents, implementation is provider dependent.
+	 */
+	protected abstract void doSendSms(final Message<JsonObject> message);
 
 	/**
 	 * Retrieves the account information.
