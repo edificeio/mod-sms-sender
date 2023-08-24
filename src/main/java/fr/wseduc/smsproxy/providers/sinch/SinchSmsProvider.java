@@ -41,7 +41,7 @@ public class SinchSmsProvider extends SmsProvider {
     }
 
     @Override
-    public void sendSms(Message<JsonObject> message) {
+    public void doSendSms(Message<JsonObject> message) {
         final JsonObject parameters = message.body().getJsonObject("parameters");
         logger.debug("[Sinch][sendSms] Called with parameters : " + parameters);
 
@@ -62,24 +62,24 @@ public class SinchSmsProvider extends SmsProvider {
             }
         };
 
-        HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
+            HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
 
-        request.putHeader("Content-Type", "application/json");
-        // Sinch specific authentication field
-        request.putHeader("Authorization", "Bearer " + apiToken);
+            request.putHeader("Content-Type", "application/json");
+            // Sinch specific authentication field
+            request.putHeader("Authorization", "Bearer " + apiToken);
 
-        String body = new JsonObject()
+            String body = new JsonObject()
                 .put("to", parameters.getJsonArray("receivers"))
-                .put("body", parameters.getValue("message"))
-                .put("client_reference", clientReference)
-                .toString();
-        Buffer bodyBuffer = Buffer.buffer();
-        bodyBuffer.appendString(body, "UTF-8");
-        request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
-        request.write(bodyBuffer);
+                    .put("body", parameters.getValue("message"))
+                    .put("client_reference", clientReference)
+                    .toString();
+            Buffer bodyBuffer = Buffer.buffer();
+            bodyBuffer.appendString(body, "UTF-8");
+            request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
+            request.write(bodyBuffer);
 
-        request.end();
-    }
+            request.end();
+        }
 
     /**
      * Method mapping specific Sinch sms sending report toward generic sms sending report
