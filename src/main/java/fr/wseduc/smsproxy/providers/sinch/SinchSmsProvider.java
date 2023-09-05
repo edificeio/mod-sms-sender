@@ -55,7 +55,7 @@ public class SinchSmsProvider extends SmsProvider {
                 sendError(message, ErrorCodes.CALL_ERROR, null);
             } else if (response.statusCode() != 201) {
                 sendError(message, ErrorCodes.CALL_ERROR, null);
-                response.bodyHandler(body -> logger.error("[Sinch][sendSms] Error when calling sinch API : " + body.toString()));
+                response.bodyHandler(body -> logger.error("[Sinch][sendSms] Error with status code : " + response.statusCode() + " when calling sinch API : " + body.toString()));
             } else {
                 response.bodyHandler(body -> {
                     try {
