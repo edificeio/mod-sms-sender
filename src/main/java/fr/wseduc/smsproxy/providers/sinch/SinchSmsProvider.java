@@ -29,13 +29,18 @@ public class SinchSmsProvider extends SmsProvider {
      */
     private String apiEndpoint;
     /**
-     * Client reference, not mandatory to call Sinch api, but can be useful to transmit parametrized information about the caller
+     * Identifier of the sender
+     */
+    private String senderId;
+    /**
+     * Client reference, not mandatory to call Sinch api, but can be useful to transmit parametrized information about the client
      */
     private String clientReference;
     @Override
     public void initProvider(Vertx vertx, JsonObject conf) {
         this.apiToken = conf.getString("apiToken", "");
         this.apiEndpoint = conf.getString("baseUrl", "") + "/" + conf.getString("servicePlanId", "") + "/batches";
+        this.senderId = conf.getString("senderId", "");
         this.clientReference = conf.getString("clientReference", "");
         this.httpClient = vertx.createHttpClient();
     }
@@ -48,6 +53,9 @@ public class SinchSmsProvider extends SmsProvider {
         final Handler<HttpClientResponse> resultHandler = response -> {
             if (response == null) {
                 sendError(message, ErrorCodes.CALL_ERROR, null);
+            } else if (response.statusCode() != 201) {
+                sendError(message, ErrorCodes.CALL_ERROR, null);
+                response.bodyHandler(body -> logger.error("[Sinch][sendSms] Error when calling sinch API : " + body.toString()));
             } else {
                 response.bodyHandler(body -> {
                     try {
@@ -68,13 +76,15 @@ public class SinchSmsProvider extends SmsProvider {
             // Sinch specific authentication field
             request.putHeader("Authorization", "Bearer " + apiToken);
 
-            String body = new JsonObject()
-                .put("to", parameters.getJsonArray("receivers"))
+            JsonObject body = new JsonObject()
+                    .put("to", parameters.getJsonArray("receivers"))
                     .put("body", parameters.getValue("message"))
-                    .put("client_reference", clientReference)
-                    .toString();
+                    .put("client_reference", clientReference);
+            if (!senderId.isEmpty()) {
+                body.put("from", senderId);
+            }
             Buffer bodyBuffer = Buffer.buffer();
-            bodyBuffer.appendString(body, "UTF-8");
+            bodyBuffer.appendString(body.toString(), "UTF-8");
             request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
             request.write(bodyBuffer);
 
