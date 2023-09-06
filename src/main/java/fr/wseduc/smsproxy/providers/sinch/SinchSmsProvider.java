@@ -2,11 +2,15 @@ package fr.wseduc.smsproxy.providers.sinch;
 
 import fr.wseduc.sms.SmsSendingReport;
 import fr.wseduc.smsproxy.providers.SmsProvider;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
-import io.vertx.core.http.*;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
@@ -36,8 +40,9 @@ public class SinchSmsProvider extends SmsProvider {
      * Client reference, not mandatory to call Sinch api, but can be useful to transmit parametrized information about the client
      */
     private String clientReference;
+
     @Override
-    public void initProvider(Vertx vertx, JsonObject conf) {
+    public void doInitProvider(Vertx vertx, JsonObject conf) {
         this.apiToken = conf.getString("apiToken", "");
         this.apiEndpoint = conf.getString("baseUrl", "") + "/" + conf.getString("servicePlanId", "") + "/batches";
         this.senderId = conf.getString("senderId", "");
@@ -46,50 +51,56 @@ public class SinchSmsProvider extends SmsProvider {
     }
 
     @Override
-    public void doSendSms(Message<JsonObject> message) {
+    public Future<Void> doSendSms(Message<JsonObject> message) {
+        final Promise<Void> promise = Promise.promise();
         final JsonObject parameters = message.body().getJsonObject("parameters");
         logger.debug("[Sinch][sendSms] Called with parameters : " + parameters);
 
         final Handler<HttpClientResponse> resultHandler = response -> {
             if (response == null) {
                 sendError(message, ErrorCodes.CALL_ERROR, null);
+                promise.fail(ErrorCodes.CALL_ERROR.getCode());
             } else if (response.statusCode() != 201) {
                 sendError(message, ErrorCodes.CALL_ERROR, null);
                 response.bodyHandler(body -> logger.error("[Sinch][sendSms] Error with status code : " + response.statusCode() + " when calling sinch API : " + body.toString()));
+                promise.fail(ErrorCodes.CALL_ERROR.getCode());
             } else {
                 response.bodyHandler(body -> {
                     try {
                         final SinchSmsSendingReport sinchSmsSendingReport = Json.decodeValue(body, SinchSmsSendingReport.class);
                         replyOk(message, toSmsReport(sinchSmsSendingReport));
                         logger.debug("[Sinch][sendSms] body : " + body);
+                        promise.complete();
                     } catch (DecodeException e) {
                         logger.error("[Sinch][sendSms] Could not decode SinchSmsSendingReport : " + body.toString(), e);
                         sendError(message, ErrorCodes.CALL_ERROR, e);
+                        promise.fail(ErrorCodes.CALL_ERROR.getCode());
                     }
                 });
             }
         };
 
-            HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
+        HttpClientRequest request = httpClient.postAbs(apiEndpoint, resultHandler);
 
-            request.putHeader("Content-Type", "application/json");
-            // Sinch specific authentication field
-            request.putHeader("Authorization", "Bearer " + apiToken);
+        request.putHeader("Content-Type", "application/json");
+        // Sinch specific authentication field
+        request.putHeader("Authorization", "Bearer " + apiToken);
 
-            JsonObject body = new JsonObject()
-                    .put("to", parameters.getJsonArray("receivers"))
-                    .put("body", parameters.getValue("message"))
-                    .put("client_reference", clientReference);
-            if (!senderId.isEmpty()) {
-                body.put("from", senderId);
-            }
-            Buffer bodyBuffer = Buffer.buffer();
-            bodyBuffer.appendString(body.toString(), "UTF-8");
-            request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
-            request.write(bodyBuffer);
-
-            request.end();
+        JsonObject body = new JsonObject()
+                .put("to", parameters.getJsonArray("receivers"))
+                .put("body", parameters.getValue("message"))
+                .put("client_reference", clientReference);
+        if (!senderId.isEmpty()) {
+            body.put("from", senderId);
         }
+        Buffer bodyBuffer = Buffer.buffer();
+        bodyBuffer.appendString(body.toString(), "UTF-8");
+        request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
+        request.write(bodyBuffer);
+
+        request.end();
+        return promise.future();
+    }
 
     /**
      * Method mapping specific Sinch sms sending report toward generic sms sending report
