@@ -6,6 +6,7 @@ then
   export GROUP_GID=1000
 fi
 
+
 clean () {
   docker-compose run --rm -u "$USER_UID:$GROUP_GID" gradle gradle clean
 }
