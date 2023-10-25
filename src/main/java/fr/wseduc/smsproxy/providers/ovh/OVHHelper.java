@@ -24,10 +24,8 @@ import java.util.Map.Entry;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
+import io.vertx.core.http.*;
+import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.core.json.JsonObject;
 
 public class OVHHelper {
@@ -89,19 +87,19 @@ public class OVHHelper {
 		}
 		
 		private void getOvhTime(final Handler<Long> handler){
-			httpclient.get("/" + API_VERSION + "/auth/time", new Handler<HttpClientResponse>() {
-				public void handle(HttpClientResponse response) {
-					if(response.statusCode() == 200){
-						response.bodyHandler(new Handler<Buffer>() {
-							public void handle(Buffer body) {
-								handler.handle(Long.parseLong(body.getString(0, body.length())));
-							}
-						});
-					} else {
-						handler.handle(new Date().getTime() / 1000l);
-					}
-				}
-			}).end();
+			httpclient.request(new RequestOptions().setMethod(HttpMethod.GET).setURI("/" + API_VERSION + "/auth/time"))
+					.flatMap(HttpClientRequest::send)
+					.onSuccess(response -> {
+						if(response.statusCode() == 200){
+							response.bodyHandler(new Handler<Buffer>() {
+								public void handle(Buffer body) {
+									handler.handle(Long.parseLong(body.getString(0, body.length())));
+								}
+							});
+						} else {
+							handler.handle(new Date().getTime() / 1000l);
+						}
+					});
 		}
 		
 		private void request(final String httpMethod, final String basepath, final JsonObject params, final Handler<HttpClientResponse> handler){
@@ -140,31 +138,12 @@ public class OVHHelper {
 				default:
 			}
 			
-			//Create request
-			HttpClientRequest request = null;
-			switch(httpMethod){
-				case "GET":
-					request = httpclient.get(fullPath, handler);
-					break;
-				case "POST":
-					request = httpclient.post(fullPath, handler);
-					break;
-				case "PUT":
-					request = httpclient.put(fullPath, handler);
-					break;
-				case "DELETE":
-					request = httpclient.delete(fullPath, handler);
-					break;
-				default:
-					handler.handle(null);
-			}
-			
 			//Create body
-			String body = "";
+			StringBuilder body = new StringBuilder();
 			switch(httpMethod){
 				case "POST":
 				case "PUT":
-					body = params.toString();
+					body.append(params.toString());
 					break;
 				default:
 			}
@@ -172,28 +151,36 @@ public class OVHHelper {
 			String timestamp = Long.toString(Math.round(new Date().getTime() / 1000l) + timeDiff);
 			
 			//Fill headers
-			request.putHeader("Content-Type", "application/json");
+			HeadersMultiMap headers = new HeadersMultiMap();
+			headers.add("Content-Type", "application/json");
 			//OVH specific fields
-			request.putHeader("X-Ovh-Application", AK);
-			request.putHeader("X-Ovh-Consumer", CK);
-			request.putHeader("X-Ovh-Timestamp", timestamp);	
+			headers.add("X-Ovh-Application", AK);
+			headers.add("X-Ovh-Consumer", CK);
+			headers.add("X-Ovh-Timestamp", Long.toString(Math.round(new Date().getTime() / 1000l) + timeDiff));
 			try{
-				request.putHeader("X-Ovh-Signature", getRequestSignature(AS, CK, httpMethod, "https://"+endPoint+fullPath, body, timestamp));
+				headers.add("X-Ovh-Signature", getRequestSignature(AS, CK, httpMethod, "https://"+endPoint+fullPath, body.toString(), timestamp));
 			} catch(NoSuchAlgorithmException e){
 				//TODO - better error logging.
 				e.printStackTrace();
-			} 
-			
-			//Fill body
-			if(body.length() > 0){
-				Buffer bodyBuffer = Buffer.buffer();
-				bodyBuffer.appendString(body, "UTF-8");
-				request.putHeader("Content-Length", Integer.toString(bodyBuffer.length()));
-				request.write(bodyBuffer);
 			}
-			
-			request.end();	
-			
+
+			//Fill body
+			Buffer bodyBuffer = Buffer.buffer();
+			if(body.length() > 0){
+				bodyBuffer.appendString(body.toString(), "UTF-8");
+				headers.add("Content-Length", Integer.toString(bodyBuffer.length()));
+				httpclient.request(new RequestOptions()
+								.setMethod(HttpMethod.valueOf(httpMethod))
+								.setURI(fullPath)
+								.setHeaders(headers))
+						.flatMap(request -> request.send(bodyBuffer));
+			} else {
+				httpclient.request(new RequestOptions()
+								.setMethod(HttpMethod.valueOf(httpMethod))
+								.setURI(fullPath)
+								.setHeaders(headers))
+						.flatMap(HttpClientRequest::send);
+			}
 		}
 		
 		public void get(final String path, final JsonObject params, final Handler<HttpClientResponse> handler){
