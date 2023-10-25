@@ -4,3 +4,5 @@ gradle/
 gradlew*
 .idea/
 .vscode/launch.json
+.env
+target
