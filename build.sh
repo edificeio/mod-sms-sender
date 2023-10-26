@@ -13,13 +13,18 @@ init() {
   echo "DEFAULT_DOCKER_USER=$me" > .env
 }
 
+clean () {
+  docker-compose run --rm maven mvn $MVN_OPTS clean
+}
+
+install () {
+  docker-compose run --rm maven mvn $MVN_OPTS install -DskipTests
+}
+
 test () {
   docker-compose run --rm maven mvn $MVN_OPTS test
 }
 
-clean () {
-  docker-compose run --rm maven mvn $MVN_OPTS clean
-}
 
 buildGradle () {
   docker-compose run --rm maven mvn $MVN_OPTS shadowJar install publishToMavenLocal
@@ -46,7 +51,7 @@ do
       clean
       ;;
     install)
-      buildGradle
+      install
       ;;
     test)
       test
