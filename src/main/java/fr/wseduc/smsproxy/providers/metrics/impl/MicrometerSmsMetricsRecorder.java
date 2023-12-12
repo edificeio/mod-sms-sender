@@ -1,7 +1,6 @@
 package fr.wseduc.smsproxy.providers.metrics.impl;
 
 import fr.wseduc.smsproxy.providers.metrics.SmsMetricsRecorder;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.vertx.core.json.JsonArray;
@@ -16,6 +15,7 @@ import java.util.stream.Collectors;
 
 public class MicrometerSmsMetricsRecorder implements SmsMetricsRecorder {
     private final Timer smsSendingTimes;
+    private final Timer smsFailureTimes;
 
     public MicrometerSmsMetricsRecorder(final Configuration configuration) {
         final MeterRegistry registry = BackendRegistries.getDefaultNow();
@@ -32,11 +32,27 @@ public class MicrometerSmsMetricsRecorder implements SmsMetricsRecorder {
             smsSendingTimesBuilder.sla(configuration.sla.toArray(new Duration[0]));
         }
         smsSendingTimes = smsSendingTimesBuilder.register(registry);
+
+        final Timer.Builder smsFailureTimesBuilder = Timer.builder("sms.failure.time")
+                .description("time spent to send failed SMS");
+        if(configuration.sla.isEmpty()) {
+            smsFailureTimesBuilder
+                    .publishPercentileHistogram()
+                    .maximumExpectedValue(Duration.ofSeconds(2L));
+        } else {
+            smsFailureTimesBuilder.sla(configuration.sla.toArray(new Duration[0]));
+        }
+        smsFailureTimes = smsFailureTimesBuilder.register(registry);
     }
 
     @Override
     public void onSmsSent(final long duration) {
         smsSendingTimes.record(duration, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public void onSmsFailure(final long duration) {
+        smsFailureTimes.record(duration, TimeUnit.MILLISECONDS);
     }
 
     public static class Configuration {

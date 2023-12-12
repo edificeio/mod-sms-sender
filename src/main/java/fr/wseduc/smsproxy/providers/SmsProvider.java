@@ -16,6 +16,9 @@
 
 package fr.wseduc.smsproxy.providers;
 
+import fr.wseduc.smsproxy.providers.metrics.SmsMetricsRecorder;
+import fr.wseduc.smsproxy.providers.metrics.SmsMetricsRecorderFactory;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
@@ -24,9 +27,11 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import fr.wseduc.sms.SmsSendingReport;
 import fr.wseduc.webutils.StringValidation;
+import static java.lang.System.currentTimeMillis;
 
 
 public abstract class SmsProvider {
+	private SmsMetricsRecorder smsMetricsRecorder;
 
 	/**
 	 * Logger object.
@@ -38,7 +43,16 @@ public abstract class SmsProvider {
 	 * @param vertx : Vertx object
 	 * @param conf : Specific provider configuration
 	 */
-	public abstract void initProvider(Vertx vertx, JsonObject conf);
+	public void initProvider(Vertx vertx, JsonObject conf) {
+		this.doInitProvider(vertx, conf);
+		this.smsMetricsRecorder = SmsMetricsRecorderFactory.getInstance();
+	}
+	/**
+	 * Initialization method of the provider class.
+	 * @param vertx : Vertx object
+	 * @param conf : Specific provider configuration
+	 */
+	protected abstract void doInitProvider(Vertx vertx, JsonObject conf);
 
 	/**
 	 * Sends a new text message.
@@ -54,14 +68,18 @@ public abstract class SmsProvider {
 			}
 		}
 		parameters.put("receivers", receiversWithPrefix);
-		doSendSms(message);
+		final long start = currentTimeMillis();
+		// Log execution times
+		doSendSms(message)
+				.onSuccess(e -> smsMetricsRecorder.onSmsSent(currentTimeMillis() - start) )
+				.onFailure(e -> smsMetricsRecorder.onSmsFailure(currentTimeMillis() - start));
 	}
 
 	/**
 	 * Sends a new text message to a list of receivers (numbers have been prefixed with the default prefix).
 	 * @param message : Message contents, implementation is provider dependent.
 	 */
-	protected abstract void doSendSms(final Message<JsonObject> message);
+	protected abstract Future<Void> doSendSms(final Message<JsonObject> message);
 
 	/**
 	 * Retrieves the account information.

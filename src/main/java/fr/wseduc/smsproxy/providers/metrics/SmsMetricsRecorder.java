@@ -11,12 +11,19 @@ public interface SmsMetricsRecorder {
      * */
     void onSmsSent(final long duration);
 
+    void onSmsFailure(final long duration);
+
     /**
      * Mock implementation used when no metrics options are defined.
      */
     class NoopSmsMetricsRecorder implements SmsMetricsRecorder {
         @Override
         public void onSmsSent(final long delay) {
+            // Do nothing in this implementation
+        }
+
+        @Override
+        public void onSmsFailure(final long duration) {
             // Do nothing in this implementation
         }
     }
