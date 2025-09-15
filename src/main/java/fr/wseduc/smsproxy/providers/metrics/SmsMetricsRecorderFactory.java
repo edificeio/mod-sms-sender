@@ -1,6 +1,8 @@
 package fr.wseduc.smsproxy.providers.metrics;
 
 import fr.wseduc.smsproxy.providers.metrics.impl.MicrometerSmsMetricsRecorder;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.metrics.MetricsOptions;
@@ -10,19 +12,29 @@ public class SmsMetricsRecorderFactory {
     private static MetricsOptions metricsOptions;
     private static SmsMetricsRecorder smsMetricsRecorder;
     private SmsMetricsRecorderFactory(){}
-    public static void init(final Vertx vertx, final JsonObject config) {
+    public static Future<Void> init(final Vertx vertx, final JsonObject config) {
         SmsMetricsRecorderFactory.config = config;
         final String metricsOptionsName = "metricsOptions";
+        final Future<Void> future;
         if(config.getJsonObject(metricsOptionsName) == null) {
-            final String metricsOptions = (String) vertx.sharedData().getLocalMap("server").get(metricsOptionsName);
-            if(metricsOptions == null){
-                SmsMetricsRecorderFactory.metricsOptions = new MetricsOptions().setEnabled(false);
-            }else{
-                SmsMetricsRecorderFactory.metricsOptions = new MetricsOptions(new JsonObject(metricsOptions));
-            }
+          final Promise<Void> promise = Promise.promise();
+            vertx.sharedData().<String, String>getLocalAsyncMap("server")
+              .compose(map -> map.get(metricsOptionsName))
+              .onSuccess(metricsOptions -> {
+                if (metricsOptions == null) {
+                  SmsMetricsRecorderFactory.metricsOptions = new MetricsOptions().setEnabled(false);
+                } else {
+                  SmsMetricsRecorderFactory.metricsOptions = new MetricsOptions(new JsonObject(metricsOptions));
+                }
+                promise.complete();
+              })
+              .onFailure(promise::fail);
+            future = promise.future();
         } else {
             metricsOptions = new MetricsOptions(config.getJsonObject(metricsOptionsName));
+            future = Future.succeededFuture();
         }
+        return future;
     }
 
     /**

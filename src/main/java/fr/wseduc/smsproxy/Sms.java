@@ -20,6 +20,7 @@ import java.util.ServiceLoader;
 
 import fr.wseduc.smsproxy.providers.metrics.SmsMetricsRecorderFactory;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonObject;
 
@@ -35,26 +36,29 @@ public class Sms extends BusModBase implements Handler<Message<JsonObject>> {
 	 * Verticle start method.
 	 */
 	@Override
-	public void start(){
+	public void start(final Promise<Void> startPromise){
 		super.start();
 		vertx.eventBus().consumer(config.getString("address", "entcore.sms"), this);
 		implementations = ServiceLoader.load(SmsProvider.class);
 		providersList = config.getJsonObject("providers");
-		SmsMetricsRecorderFactory.init(vertx, config);
-
-		if(providersList == null){
-			logger.error("providers.list.empty");
-			return;
-		}
-
-		for(String field : providersList.fieldNames()){
-			for(SmsProvider provider : implementations){
-				if(provider.getClass().getSimpleName().equals(field + "SmsProvider")){
-					provider.initProvider(vertx, providersList.getJsonObject(field));
-					logger.info("[Sms] "+provider.getClass().getName()+" registered.");
-				}
-			}
-		}
+		SmsMetricsRecorderFactory.init(vertx, config)
+      .onSuccess(e -> {
+        if (providersList == null) {
+          logger.error("providers.list.empty");
+          startPromise.fail("providers.list.empty");
+          return;
+        }
+        for (String field : providersList.fieldNames()) {
+          for (SmsProvider provider : implementations) {
+            if (provider.getClass().getSimpleName().equals(field + "SmsProvider")) {
+              provider.initProvider(vertx, providersList.getJsonObject(field));
+              logger.info("[Sms] " + provider.getClass().getName() + " registered.");
+            }
+          }
+        }
+        startPromise.complete();
+      })
+      .onFailure(startPromise::fail);
 	}
 
 	//Return the instantiated provider given a provider name prefix
