@@ -17,11 +17,6 @@ pipeline {
           sh './build.sh init clean install publish'
         }
       }
-        stage('Build image') {
-            steps {
-                sh 'edifice image'
-            }
-        }
     }
   post {
     cleanup {
