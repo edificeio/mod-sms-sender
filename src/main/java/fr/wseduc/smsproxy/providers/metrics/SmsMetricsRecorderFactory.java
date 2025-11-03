@@ -18,7 +18,7 @@ public class SmsMetricsRecorderFactory {
         final Future<Void> future;
         if(config.getJsonObject(metricsOptionsName) == null) {
           final Promise<Void> promise = Promise.promise();
-            vertx.sharedData().<String, String>getAsyncMap("server")
+            vertx.sharedData().<String, String>getLocalAsyncMap("server")
               .compose(map -> map.get(metricsOptionsName))
               .onSuccess(metricsOptions -> {
                 if (metricsOptions == null) {
