@@ -1,0 +1,10 @@
+{
+  "name": "fr.wseduc~mod-sms-proxy",
+  "waitDeploy" : true,
+  "worker": true,
+  "config": {
+    "main": "fr.wseduc.smsproxy.Sms",
+    "address": "entcore.sms",
+    "providers": {{ smsProviders | default('{}') }}
+  }
+}
